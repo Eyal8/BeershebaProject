@@ -33,7 +33,6 @@ def get_fire_hydrants_edges(start, end):
   df['Id'] = df.index + 1
   df2 = df.iloc[start:end]
   edges = pd.DataFrame(columns=['source', 'dest', 'dist'])
-  #i = 0
   for row in df.itertuples():
     for row2 in df2.itertuples():
       cur_dist = distance.distance((row[2], row[1]), (row2[2], row2[1]))
@@ -41,8 +40,6 @@ def get_fire_hydrants_edges(start, end):
                           columns=['source', 'dest', 'dist'])
       edges = edges.append(edge)
 
-    #print("hayush " + str(i))
-    #i += 1
   edges['dist'] = edges['dist'].apply(lambda x: float(str(x).split()[0]))
   edges = edges[edges['dist'] != 0.0]
   edges.to_csv("Edges/hydrants_edges" + str(start) + ".csv", index=False)
@@ -66,10 +63,8 @@ def create_graph(df=None, coordinates=None, threshold=0.3):
   g = nx.Graph()
   for key, value in coordinates.items():
     g.add_node(key, x=(value[0], value[1]), color=value[2])
-  #for i, r in df.iterrows():
-  #  g.add_node(r['source'], x=coordinates[r['source']])
-  #  g.add_node(r['dest'], x=coordinates[r['dest']])
   df = df[df['dist'] < threshold]
+  df = df[df['dest'] != 'unknown']
   edges_list = [(r['source'], r['dest']) for i, r in df.iterrows()]
   g.add_edges_from(edges_list)
   return g
@@ -169,12 +164,56 @@ neighborhoods_coordinates['Dalet'] = [31.258413, 31.272858, 34.785338, 34.804906
 # decide which objects to add to the map (all together is overwhelming)
 objects = {1:['community-centers', 'blue'],
            2:['daycare', 'purple'],
-           3:['gas_stations', 'black'],
-           4:['EducationalInstitutions', 'gray'],
+           3:['gas_stations', 'brown'],
+           4:['EducationalInstitutions', 'green'],
            5:['HealthClinics', 'pink'],
-           6:['playgrounds', 'green'],
-           7:['Sport', 'orange'],
-           8:['Synagogue', 'cadetblue']}
+           6:['Sport', 'orange'],
+           7:['Synagogue', 'yellow']}
+
+# objects = {'community-centers': 'blue',
+#            'daycare': 'purple',
+#            'gas_stations': 'brown',
+#            'EducationalInstitutions': 'green',
+#            'HealthClinics': 'pink',
+#            'Sport': 'orange',
+#            'Synagogue': 'yellow',
+# }
+
+
+def unite_edges(objects_to_display):
+  total_df = pd.DataFrame(columns=['source', 'dest', 'dist'])
+  for object in objects_to_display:
+    total_df = total_df.append(pd.read_csv('./Edges/' + 'edges_' + object[0] + '.csv'), ignore_index=True)
+  return total_df
+
+def create_all_graphs(objects_to_display):
+  total_df = pd.DataFrame(columns=['X', 'Y', 'Name'])
+  coordinates = defaultdict(tuple)
+  for object in objects_to_display:
+
+  #colors = ['blue', 'green', 'yellow', 'pink', 'orange', 'brown', 'purple']
+  #for i, dataset in enumerate(os.listdir('./Datasets/')):
+    color = object[1]
+    df = pd.read_csv('./Datasets/' + object[0] + '.csv')
+    df = df[['X', 'Y', 'Name']]
+    total_df = total_df.append(df, ignore_index=True)
+    for row in df.itertuples():
+      coordinates[row[3]] = (row[1], row[2], color)
+  df_fire = pd.read_csv("./Fire_Hydrant.csv")
+  df_fire['Name'] = df_fire.index + 1
+  df_fire = df_fire[['X', 'Y', 'Name']]
+  total_df = total_df.append(df_fire, ignore_index=True)
+  for row in df_fire.itertuples():
+    coordinates[row[3]] = (row[1], row[2], 'red')
+
+  min_x = total_df['X'].min()
+  max_x = total_df['X'].max()
+  min_y = total_df['Y'].min()
+  max_y = total_df['Y'].max()
+
+  distance = 0.2
+  g = create_graph(unite_edges(objects_to_display), coordinates, distance)
+  draw_nx(g, min_x, max_x, min_y, max_y, str(distance))
 
 if __name__ == "__main__":
   # # Create a Map instance
@@ -207,42 +246,21 @@ if __name__ == "__main__":
   #  jobs.append(p)
   #  p.start()
 
-def unite_edges():
-  total_df = pd.DataFrame(columns=['source', 'dest', 'dist'])
-  for edge_file in os.listdir('./Edges/'):
-    total_df = total_df.append(pd.read_csv('./Edges/' + edge_file), ignore_index=True)
-  return total_df
-
-def create_all_graphs():
-  total_df = pd.DataFrame(columns=['X', 'Y', 'Name'])
-
-  coordinates = defaultdict(tuple)
-  colors = ['blue', 'green', 'yellow', 'pink', 'orange', 'brown', 'purple']
-  for i, dataset in enumerate(os.listdir('./Datasets/')):
-    color = colors[i]
-    df = pd.read_csv('./Datasets/' + dataset)
-    df = df[['X', 'Y', 'Name']]
-    total_df = total_df.append(df, ignore_index=True)
-    for row in df.itertuples():
-      coordinates[row[3]] = (row[1], row[2], color)
-  df_fire = pd.read_csv("./Fire_Hydrant.csv")
-  df_fire['Name'] = df_fire.index + 1
-  df_fire = df_fire[['X', 'Y', 'Name']]
-  total_df = total_df.append(df_fire, ignore_index=True)
-  for row in df_fire.itertuples():
-    coordinates[row[3]] = (row[1], row[2], 'red')
-
-  min_x = total_df['X'].min()
-  max_x = total_df['X'].max()
-  min_y = total_df['Y'].min()
-  max_y = total_df['Y'].max()
-
-  distance = 0.2
-  g = create_graph(unite_edges(), coordinates, distance)
-  draw_nx(g, min_x, max_x, min_y, max_y, str(distance))
+  #choose from the following:
+  # objects = {1: ['community-centers', 'blue'],
+  #            2: ['daycare', 'purple'],
+  #            3: ['gas_stations', 'brown'],
+  #            4: ['EducationalInstitutions', 'green'],
+  #            5: ['HealthClinics', 'pink'],
+  #            6: ['Sport', 'orange'],
+  #            7: ['Synagogue', 'yellow']}
+  objects_to_display = [objects[1], objects[2]]
+  create_all_graphs(objects_to_display)
 
 
-create_all_graphs()
+
+
+
 # for distance in [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]:
 #   g = create_graph(df, coordinates, distance)
 #   draw_nx(g, min_x, max_x, min_y, max_y, str(distance))
