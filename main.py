@@ -10,8 +10,6 @@ import os
 import networkx as nx
 import matplotlib.pyplot as plt
 
-
-
 def get_edges_to_hydrants(df, dataset_name):
   df = df.replace(np.nan, 'unknown', regex=True)
   fire_df = pd.read_csv("./Fire_Hydrant.csv")
@@ -26,7 +24,6 @@ def get_edges_to_hydrants(df, dataset_name):
   edges['dist'] = edges['dist'].apply(lambda x: float(str(x).split()[0]))
   edges = edges[edges['dist'] != 0.0]
   edges.to_csv("Edges/" + dataset_name, index=False)
-
 
 def get_fire_hydrants_edges(start, end):
   df = pd.read_csv("./Datasets/Fire_Hydrant.csv")
@@ -52,7 +49,7 @@ def unite_csv():
       edges = edges.append(current)
   edges.to_csv("all_hydrants_edges.csv", index=False)
 
-def create_graph(df=None, coordinates=None, threshold=0.3):
+def create_graph(df=None, coordinates=None, threshold=0.1):
   '''
   create the graph given df of edges and coordinates
   :param df:
@@ -62,9 +59,12 @@ def create_graph(df=None, coordinates=None, threshold=0.3):
   '''
   g = nx.Graph()
   for key, value in coordinates.items():
-    g.add_node(key, x=(value[0], value[1]), color=value[2])
+    if isinstance(value[2], str):
+      g.add_node(key, x=(value[0], value[1]), name=value[2][::-1], color=value[3])
+    else:
+      g.add_node(key, x=(value[0], value[1]), name=value[2], color=value[3])
+
   df = df[df['dist'] < threshold]
-  df = df[df['dest'] != 'unknown']
   edges_list = [(r['source'], r['dest']) for i, r in df.iterrows()]
   g.add_edges_from(edges_list)
   return g
@@ -73,7 +73,10 @@ def draw_nx(g, min_x, max_x, min_y, max_y, distance):
   plt.figure(figsize=(30, 30))
   color = nx.get_node_attributes(g, 'color')
   pos = nx.get_node_attributes(g,'x')
-  nx.draw(g, pos=pos, node_color=color.values(), with_labels=True)
+  names = nx.get_node_attributes(g, 'name')
+  nx.draw_networkx_nodes(g, pos=pos, alpha=0.7, node_color=color.values())
+  nx.draw_networkx_labels(g, pos=pos, labels=names)
+  nx.draw_networkx_edges(g, pos=pos, width=4)
   plt.xlim([min_x, max_x])
   plt.ylim([min_y, max_y])
   plt.axis('on')
@@ -152,8 +155,6 @@ def display_each_object_separatly():
   # synagogues
   add_objects_to_map(file_path="./Datasets/Synagogue.csv", name='Name', map=m, icon_prefix='fa', icon_color='cadetblue')
 
-
-
 neighborhoods_coordinates = defaultdict(list) # [lat_start, lat_end, long_start, long_end]
 neighborhoods_coordinates['Alef'] = [31.244009, 31.251860, 34.782724, 34.797824]
 neighborhoods_coordinates['Bet'] = [31.250628, 31.258846, 34.775928, 34.798577]
@@ -164,26 +165,16 @@ neighborhoods_coordinates['Dalet'] = [31.258413, 31.272858, 34.785338, 34.804906
 # decide which objects to add to the map (all together is overwhelming)
 objects = {1:['community-centers', 'blue'],
            2:['daycare', 'purple'],
-           3:['gas_stations', 'brown'],
+           3:['gas_stations', 'cyan'],
            4:['EducationalInstitutions', 'green'],
            5:['HealthClinics', 'pink'],
            6:['Sport', 'orange'],
            7:['Synagogue', 'yellow']}
 
-# objects = {'community-centers': 'blue',
-#            'daycare': 'purple',
-#            'gas_stations': 'brown',
-#            'EducationalInstitutions': 'green',
-#            'HealthClinics': 'pink',
-#            'Sport': 'orange',
-#            'Synagogue': 'yellow',
-# }
-
-
 def unite_edges(objects_to_display):
   total_df = pd.DataFrame(columns=['source', 'dest', 'dist'])
   for object in objects_to_display:
-    total_df = total_df.append(pd.read_csv('./Edges/' + 'edges_' + object[0] + '.csv'), ignore_index=True)
+    total_df = total_df.append(pd.read_csv('./New_edges/' + 'edges_' + object[0] + '.csv'), ignore_index=True)
   return total_df
 
 def create_all_graphs(objects_to_display):
@@ -194,17 +185,18 @@ def create_all_graphs(objects_to_display):
   #colors = ['blue', 'green', 'yellow', 'pink', 'orange', 'brown', 'purple']
   #for i, dataset in enumerate(os.listdir('./Datasets/')):
     color = object[1]
-    df = pd.read_csv('./Datasets/' + object[0] + '.csv')
-    df = df[['X', 'Y', 'Name']]
+    df = pd.read_csv('./Modified_datasets/' + object[0] + '.csv')
+    df = df[['X', 'Y', 'Name', 'Id']]
     total_df = total_df.append(df, ignore_index=True)
     for row in df.itertuples():
-      coordinates[row[3]] = (row[1], row[2], color)
+      coordinates[row[4]] = (row[1], row[2], row[3], color)
   df_fire = pd.read_csv("./Fire_Hydrant.csv")
   df_fire['Name'] = df_fire.index + 1
-  df_fire = df_fire[['X', 'Y', 'Name']]
+  df_fire['Id'] = df_fire['Name']
+  df_fire = df_fire[['X', 'Y', 'Name', 'Id']]
   total_df = total_df.append(df_fire, ignore_index=True)
   for row in df_fire.itertuples():
-    coordinates[row[3]] = (row[1], row[2], 'red')
+    coordinates[row[4]] = (row[1], row[2], row[3], 'red')
 
   min_x = total_df['X'].min()
   max_x = total_df['X'].max()
@@ -214,6 +206,31 @@ def create_all_graphs(objects_to_display):
   distance = 0.2
   g = create_graph(unite_edges(objects_to_display), coordinates, distance)
   draw_nx(g, min_x, max_x, min_y, max_y, str(distance))
+  return g
+
+def find_unconnected_nodes(g):
+  degree_dict = nx.degree_centrality(g)
+  degree_zero_nodes = [k for k, v in degree_dict.items() if v == 0 and k > 2595]
+  return degree_zero_nodes
+
+def fire_hydrants_centrality():
+  df_fire2 = pd.read_csv("C:\\Users\eyal8_000\Desktop\\all_hydrants_edges.csv")
+  coordinates = defaultdict(tuple)
+  df_fire = pd.read_csv("./Fire_Hydrant.csv")
+  df_fire['Name'] = df_fire.index + 1
+  df_fire['Id'] = df_fire['Name']
+  df_fire = df_fire[['X', 'Y', 'Name', 'Id']]
+  for row in df_fire.itertuples():
+    coordinates[row[4]] = (row[1], row[2], row[3], 'red')
+
+  g = create_graph(df_fire2, coordinates, 0.1)
+
+  draw_nx(g, 0,0,0,0,0)
+  # def nx_algorithms(g):
+  # only fire hydrants - centrality measurements
+  # object nodes - node degrees (check which has 0)
+  # subgraphs per neighborhood
+
 
 if __name__ == "__main__":
   # # Create a Map instance
@@ -254,9 +271,11 @@ if __name__ == "__main__":
   #            5: ['HealthClinics', 'pink'],
   #            6: ['Sport', 'orange'],
   #            7: ['Synagogue', 'yellow']}
-  objects_to_display = [objects[1], objects[2]]
-  create_all_graphs(objects_to_display)
 
+  # objects_to_display = [objects[1], objects[2], objects[3], objects[5]]
+  # g = create_all_graphs(objects_to_display)
+  # print(find_unconnected_nodes(g))
+  fire_hydrants_centrality()
 
 
 
