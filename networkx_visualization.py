@@ -58,7 +58,7 @@ def create_graph(df=None, coordinates=None, threshold=0.1):
   g = nx.Graph()
   for key, value in coordinates.items():
     if isinstance(value[2], str):
-      g.add_node(key, x=(value[0], value[1]), name=value[2][::-1], color=value[3])
+      g.add_node(key, x=(value[0], value[1]), name=value[2], color=value[3])
     else:
       g.add_node(key, x=(value[0], value[1]), name=value[2], color=value[3])
 
@@ -68,36 +68,35 @@ def create_graph(df=None, coordinates=None, threshold=0.1):
   return g
 
 def draw_nx(g, min_x, max_x, min_y, max_y, distance):
-  plt.figure(figsize=(30, 30))
-  color = nx.get_node_attributes(g, 'color')
-  pos = nx.get_node_attributes(g,'x')
-  names = nx.get_node_attributes(g, 'name')
-  nx.draw_networkx_nodes(g, pos=pos, alpha=0.7, node_color=color.values())
-  nx.draw_networkx_labels(g, pos=pos, labels=names)
-  nx.draw_networkx_edges(g, pos=pos, width=4)
-  plt.xlim([min_x, max_x])
-  plt.ylim([min_y, max_y])
-  plt.axis('on')
-  plt.show()
-  #plt.savefig('edges_network_' + distance + '.png')
-
+  # plt.figure(figsize=(30, 30))
+  # color = nx.get_node_attributes(g, 'color')
+  # pos = nx.get_node_attributes(g,'x')
+  # names = nx.get_node_attributes(g, 'name')
+  # nx.draw_networkx_nodes(g, pos=pos, alpha=0.7, node_color=color.values())
+  # nx.draw_networkx_labels(g, pos=pos, labels=names)
+  # nx.draw_networkx_edges(g, pos=pos, width=4)
+  # plt.xlim([min_x, max_x])
+  # plt.ylim([min_y, max_y])
+  # plt.axis('on')
+  # plt.show()
+  # #plt.savefig('edges_network_' + distance + '.png')
+  pass
 def unite_edges(objects_to_display):
   total_df = pd.DataFrame(columns=['source', 'dest', 'dist'])
-  for object in objects_to_display:
-    total_df = total_df.append(pd.read_csv('./New_edges/' + 'edges_' + object[0] + '.csv'), ignore_index=True)
+  for object in objects_to_display.keys():
+    total_df = total_df.append(pd.read_csv('./New_edges/' + 'edges_' + object + '.csv'), ignore_index=True)
   return total_df
 
 
 
-def create_all_graphs(objects_to_display):
+def create_all_graphs(objects_to_display, distance=0.03):
+  relevant_objects = {k: v for k, v in all_objects.items() if k in objects_to_display}
   total_df = pd.DataFrame(columns=['X', 'Y', 'Name'])
   coordinates = defaultdict(tuple)
-  for object in objects_to_display:
-
+  for object, color in relevant_objects.items():
   #colors = ['blue', 'green', 'yellow', 'pink', 'orange', 'brown', 'purple']
   #for i, dataset in enumerate(os.listdir('./Datasets/')):
-    color = object[1]
-    df = pd.read_csv('./Modified_datasets/' + object[0] + '.csv')
+    df = pd.read_csv('./Modified_datasets/' + object + '.csv')
     df = df[['X', 'Y', 'Name', 'Id']]
     total_df = total_df.append(df, ignore_index=True)
     for row in df.itertuples():
@@ -114,10 +113,11 @@ def create_all_graphs(objects_to_display):
   min_y = total_df['Y'].min()
   max_y = total_df['Y'].max()
 
-  distance = 0.2
-  g = create_graph(unite_edges(objects_to_display), coordinates, distance)
+  g = create_graph(unite_edges(relevant_objects), coordinates, distance)
   draw_nx(g, min_x, max_x, min_y, max_y, str(distance))
   return g
+
+
 
 def find_unconnected_nodes(g):
   degree_dict = nx.degree_centrality(g)
@@ -155,10 +155,36 @@ def nodes_per_neighborhood(g, neighborhoods):
   return nodes
 
 # decide which objects to add to the map (all together is overwhelming)
-objects = {1:['community-centers', 'blue'],
-           2:['daycare', 'purple'],
-           3:['gas_stations', 'cyan'],
-           4:['EducationalInstitutions', 'green'],
-           5:['HealthClinics', 'pink'],
-           6:['Sport', 'orange'],
-           7:['Synagogue', 'yellow']}
+all_objects = {'community-centers':'blue',
+           'daycare': 'purple',
+           'gas_stations': 'cyan',
+           'EducationalInstitutions': 'green',
+           'HealthClinics': 'pink',
+           'Sport': 'orange',
+           'Synagogue': 'white',
+           'Shelters': 'brown',
+           'Sirens': 'black'}
+
+# objects = {1:['community-centers', 'blue'],
+#            2:['daycare', 'purple'],
+#            3:['gas_stations', 'cyan'],
+#            4:['EducationalInstitutions', 'green'],
+#            5:['HealthClinics', 'pink'],
+#            6:['Sport', 'orange'],
+#            7:['Synagogue', 'yellow']}
+
+def get_isloated_nodes(g, relevant_nodes):
+  isolated_nodes = []
+  for node in g.nodes:
+    if node >2595:
+      if g.degree[node] == 0 and node in relevant_nodes:
+        isolated_nodes.append(node)
+  return isolated_nodes
+
+def all_top_central_fire_hydrants():
+  g = create_all_graphs(list(all_objects.keys()), 0.03)
+  bet_cen = nx.betweenness_centrality(g)
+  bet_cen = {k: v for k, v in bet_cen.items() if k < 2596}
+  top_hydrants = sorted(bet_cen, key=bet_cen.get, reverse=True)
+  poses = nx.get_node_attributes(g, 'x')
+  return top_hydrants, poses, bet_cen

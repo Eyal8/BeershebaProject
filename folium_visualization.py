@@ -39,7 +39,7 @@ neighborhoods_coordinates['Hei'] = Polygon(
 neighborhoods_coordinates['Tet'] = Polygon(
     [(31.252226, 34.770274), (31.241293, 34.767441), (31.244595, 34.782633), (31.246209, 34.782977),
      (31.251566, 34.771733)])
-neighborhoods_coordinates['Yod Alefh'] = Polygon(
+neighborhoods_coordinates['Yod Alef'] = Polygon(
     [(31.266313, 34.768557), (31.256849, 34.758429), (31.251933, 34.770102), (31.258610, 34.775595)])
 neighborhoods_coordinates['Old Town'] = Polygon(
     [(31.239091, 34.798169), (31.233367, 34.784178), (31.235128, 34.770789), (31.241293, 34.767527),
@@ -47,7 +47,7 @@ neighborhoods_coordinates['Old Town'] = Polygon(
 neighborhoods_coordinates['Ashan'] = Polygon(
     [(31.266844, 34.768721), (31.272053, 34.762885), (31.262222, 34.749495), (31.257012, 34.758593),
      (31.265890, 34.767606)])
-neighborhoods_coordinates['Noi_Beka'] = Polygon(
+neighborhoods_coordinates['Noi Beka'] = Polygon(
     [(31.239255, 34.798076), (31.230301, 34.802110), (31.225971, 34.797732), (31.218337, 34.774043),
      (31.221861, 34.768550), (31.234044, 34.774472), (31.238447, 34.794986)])
 neighborhoods_coordinates['Darom'] = Polygon(
@@ -120,16 +120,22 @@ def display_objects(map, objects_chosen, neighborhoods_chosen, specific_objects)
   :param neighborhoods_chosen: The neighborhood to display the objects in (list)
   :return:
   '''
-  for object in objects_chosen:
-    for neighborhood in neighborhoods_chosen:
+  if neighborhoods_chosen == None:
+    for object in objects_chosen:
       add_object_to_map(file_path="./Modified_datasets/" + object[0] + ".csv", map=map, icon_prefix='fa',
-                         icon_color=object[1], neighborhood_coordinates=neighborhoods_coordinates[neighborhood],
-                        specific_objects=specific_objects, is_fire_hydrants=False)
-  # draw fire hydrants
-  for neighborhood in neighborhoods_chosen:
-    add_object_to_map(file_path="./Fire_Hydrant" + ".csv", map=map, icon_prefix='fa',
-                      icon_color='red', neighborhood_coordinates=neighborhoods_coordinates[neighborhood],
-                      specific_objects=specific_objects, is_fire_hydrants=True)
+      icon_color=object[1], neighborhood_coordinates=None,
+      specific_objects=specific_objects, is_fire_hydrants=False)
+  else:
+    for object in objects_chosen:
+      for neighborhood in neighborhoods_chosen:
+        add_object_to_map(file_path="./Modified_datasets/" + object[0] + ".csv", map=map, icon_prefix='fa',
+        icon_color=object[1], neighborhood_coordinates=neighborhoods_coordinates[neighborhood],
+        specific_objects=specific_objects, is_fire_hydrants=False)
+    # draw fire hydrants
+    for neighborhood in neighborhoods_chosen:
+      add_object_to_map(file_path="./Fire_Hydrant" + ".csv", map=map, icon_prefix='fa',
+      icon_color='red', neighborhood_coordinates=neighborhoods_coordinates[neighborhood],
+      specific_objects=specific_objects, is_fire_hydrants=True)
 
 # draw more specifically
 def display_each_object_separatly(map):
